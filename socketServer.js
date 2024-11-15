@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
+const axios = require('axios'); // Dùng để gọi API Laravel
 
 const app = express();
 const server = http.createServer(app);
@@ -13,15 +14,18 @@ const io = new Server(server, {
 });
 
 app.use(cors());
-app.use(express.json()); // Middleware để xử lý JSON
+app.use(express.json());
 
-// Quản lý trạng thái user
 const userConnections = {};
 
-// Route để kiểm tra kết nối
-app.get('/', (req, res) => {
-  res.send("WebSocket server is running");
-});
+// Hàm gửi danh sách user hiện tại
+const broadcastUserList = () => {
+  const users = Object.keys(userConnections).map(userID => ({
+    userID,
+    online: userConnections[userID].size > 0
+  }));
+  io.emit('user_list', users);
+};
 
 // Route để nhận tin nhắn từ Laravel
 app.post('/send-message', (req, res) => {
@@ -38,41 +42,39 @@ app.post('/send-message', (req, res) => {
 io.on('connection', (socket) => {
   const userID = socket.handshake.query.userID;
 
-  // Nếu userID không có trong danh sách, khởi tạo Set để quản lý kết nối
   if (!userConnections[userID]) {
     userConnections[userID] = new Set();
   }
-
-  // Thêm ID socket vào danh sách kết nối của user
   userConnections[userID].add(socket.id);
   console.log(`User connected: ${userID}, Connections: ${userConnections[userID].size}`);
 
-  // Phát sự kiện "online" tới client
-  io.emit('user_status', { userID, status: 'online' });
+  // Gửi danh sách user cho client
+  broadcastUserList();
 
-  // Khi nhận tin nhắn từ client
-  socket.on('chat message', (msg) => {
-    io.emit('chat message', msg);
-  });
-
-  // Khi user ngắt kết nối
-  socket.on('disconnect', () => {
-    userConnections[userID].delete(socket.id); // Xóa kết nối cụ thể
-
+  socket.on('disconnect', async () => {
+    userConnections[userID].delete(socket.id);
     if (userConnections[userID].size === 0) {
-      // Nếu không còn kết nối nào, xóa user khỏi danh sách
       delete userConnections[userID];
-
-      // Phát sự kiện "offline" tới client
-      io.emit('user_status', { userID, status: 'offline' });
       console.log(`User disconnected: ${userID} (All connections closed)`);
+
+      // Gọi API Laravel để cập nhật last_time_online
+      try {
+        await axios.post('http://localhost:8000/api/set-last-online', {
+          userID
+        });
+        console.log(`Updated last_time_online for user: ${userID}`);
+      } catch (error) {
+        console.error(`Failed to update last_time_online for user: ${userID}`, error.message);
+      }
     } else {
       console.log(`User disconnected: ${userID}, Remaining connections: ${userConnections[userID].size}`);
     }
+
+    // Gửi danh sách user cho client
+    broadcastUserList();
   });
 });
 
-// Lắng nghe trên cổng 6060
 server.listen(6060, () => {
   console.log('Socket server is running on port 6060');
 });
