@@ -55,7 +55,6 @@ app.get('/api/online-users', (req, res) => {
   res.json({ data: onlineUsers });
 });
 
-// Xử lý kết nối WebSocket
 io.on('connection', (socket) => {
   const userID = socket.handshake.query.userID;
 
@@ -70,18 +69,66 @@ io.on('connection', (socket) => {
   }
   userConnections[userID].add(socket.id);
 
-  // Nếu user đang trong userDisconnections, xóa user khỏi danh sách ngắt kết nối
+  // Xóa user khỏi danh sách ngắt kết nối nếu tồn tại
   if (userDisconnections[userID]) {
     delete userDisconnections[userID];
   }
 
   console.log(`User connected: ${userID}, Connections: ${userConnections[userID].size}`);
 
-  // Gửi người dùng vừa kết nối qua sự kiện user_list
+  // Gửi thông tin người dùng vừa kết nối đến tất cả client
   io.emit('user_list', {
     userID,
     online: true,
-    last_active: null
+    last_active: null,
+  });
+
+  // Lắng nghe sự kiện `join_conversation`
+  socket.on('join_conversation', (conversation_id) => {
+    if (conversation_id) {
+      socket.join(conversation_id);
+      console.log(`User ${userID} joined conversation: ${conversation_id}`);
+    } else {
+      console.log(`User ${userID} attempted to join a conversation without an ID`);
+    }
+  });
+
+  // Lắng nghe tin nhắn từ người dùng trong một conversation
+  socket.on('send_message', async (data) => {
+    const { conversation_id, content, sender_id } = data;
+
+    if (conversation_id && content, sender_id) {
+      // Phát tin nhắn đến các client trong conversation này
+      io.to(conversation_id).emit('receive_message', {
+        conversation_id,
+        content,
+        sender_id,
+        timestamp: getCurrentTimeFormatted(),
+      });
+      // Gửi tin nhắn đến Laravel API để lưu trữ
+      // try {
+      //   await axios.post('http://localhost:8000/api/save-message', {
+      //     conversation_id,
+      //     sender_id,
+      //     message,
+      //   });
+      //   console.log(`Message saved to conversation: ${conversation_id}`);
+      // } catch (error) {
+      //   console.error(`Failed to save message to Laravel API: ${error.message}`);
+      // }
+    } else {
+      console.log('Invalid message data received');
+    }
+  });
+
+  // Lắng nghe sự kiện thoát phòng
+  socket.on('leave_conversation', (conversation_id) => {
+    if (conversation_id) {
+      socket.leave(conversation_id);
+      console.log(`User ${userID} left conversation: ${conversation_id}`);
+    } else {
+      console.log(`User ${userID} attempted to leave a conversation without an ID`);
+    }
   });
 
   socket.on('disconnect', async () => {
@@ -95,11 +142,12 @@ io.on('connection', (socket) => {
         const last_active = getCurrentTimeFormatted();
         await axios.post('http://localhost:8000/api/set-last-online', {
           userID,
-          last_active
+          last_active,
         });
+
         // Thêm user vào userDisconnections
         userDisconnections[userID] = {
-          last_active
+          last_active,
         };
         console.log(`Updated last_time_online and moved user to userDisconnections: ${userID}`);
 
@@ -107,7 +155,7 @@ io.on('connection', (socket) => {
         io.emit('user_disconnect_list', {
           userID,
           online: false,
-          last_active
+          last_active,
         });
       } catch (error) {
         console.error(`Failed to update last_time_online for user: ${userID}`, error.message);
