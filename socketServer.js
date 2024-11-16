@@ -17,14 +17,22 @@ app.use(cors());
 app.use(express.json());
 
 const userConnections = {};
+const userDisconnections = {};
 // Hàm gửi danh sách user hiện tại
 const broadcastUserList = () => {
-  const users = Object.keys(userConnections).map(userID => ({
+  const connectedUsers = Object.keys(userConnections).map(userID => ({
     userID,
     online: userConnections[userID].size > 0,
     last_active: null
   }));
-  io.emit('user_list', users);
+
+  const disconnectedUsers = Object.keys(userDisconnections).map(userID => ({
+    userID,
+    online: false,
+    last_active: userDisconnections[userID].last_active
+  }));
+
+  io.emit('user_list', [...connectedUsers, ...disconnectedUsers]);
 };
 
 // time format yyyy-mm-dd H:i:s
@@ -62,6 +70,12 @@ io.on('connection', (socket) => {
     userConnections[userID] = new Set();
   }
   userConnections[userID].add(socket.id);
+
+  // Nếu user đang trong userDisconnections, xóa user khỏi danh sách ngắt kết nối
+  if (userDisconnections[userID]) {
+    delete userDisconnections[userID];
+  }
+
   console.log(`User connected: ${userID}, Connections: ${userConnections[userID].size}`);
 
   // Gửi danh sách user cho client
@@ -80,7 +94,11 @@ io.on('connection', (socket) => {
           userID,
           last_active
         });
-        console.log(`Updated last_time_online for user: ${userID}`);
+        // Thêm user vào userDisconnections
+        userDisconnections[userID] = {
+          last_active
+        };
+        console.log(`Updated last_time_online and moved user to userDisconnections: ${userID}`);
       } catch (error) {
         console.error(`Failed to update last_time_online for user: ${userID}`, error.message);
       }
@@ -92,7 +110,6 @@ io.on('connection', (socket) => {
     broadcastUserList();
   });
 });
-
 server.listen(6060, () => {
   console.log('Socket server is running on port 6060');
 });
