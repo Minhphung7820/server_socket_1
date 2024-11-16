@@ -17,15 +17,31 @@ app.use(cors());
 app.use(express.json());
 
 const userConnections = {};
-
 // Hàm gửi danh sách user hiện tại
 const broadcastUserList = () => {
   const users = Object.keys(userConnections).map(userID => ({
     userID,
-    online: userConnections[userID].size > 0
+    online: userConnections[userID].size > 0,
+    last_active: null
   }));
   io.emit('user_list', users);
 };
+
+// time format yyyy-mm-dd H:i:s
+const getCurrentTimeFormatted = () => {
+  const now = new Date();
+
+  // Lấy từng thành phần của thời gian
+  const year = now.getFullYear();
+  const month = (now.getMonth() + 1).toString().padStart(2, '0'); // Tháng +1 vì tháng tính từ 0
+  const day = now.getDate().toString().padStart(2, '0');
+  const hours = now.getHours().toString().padStart(2, '0');
+  const minutes = now.getMinutes().toString().padStart(2, '0');
+  const seconds = now.getSeconds().toString().padStart(2, '0');
+
+  // Ghép lại theo định dạng Y-m-d H:i:s
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
 
 // Route để nhận tin nhắn từ Laravel
 app.post('/send-message', (req, res) => {
@@ -59,8 +75,10 @@ io.on('connection', (socket) => {
 
       // Gọi API Laravel để cập nhật last_time_online
       try {
+        const last_active = getCurrentTimeFormatted();
         await axios.post('http://localhost:8000/api/set-last-online', {
-          userID
+          userID,
+          last_active
         });
         console.log(`Updated last_time_online for user: ${userID}`);
       } catch (error) {
