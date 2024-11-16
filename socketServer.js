@@ -18,22 +18,6 @@ app.use(express.json());
 
 const userConnections = {};
 const userDisconnections = {};
-// Hàm gửi danh sách user hiện tại
-const broadcastUserList = () => {
-  const connectedUsers = Object.keys(userConnections).map(userID => ({
-    userID,
-    online: userConnections[userID].size > 0,
-    last_active: null
-  }));
-
-  const disconnectedUsers = Object.keys(userDisconnections).map(userID => ({
-    userID,
-    online: false,
-    last_active: userDisconnections[userID].last_active
-  }));
-
-  io.emit('user_list', [...connectedUsers, ...disconnectedUsers]);
-};
 
 // time format yyyy-mm-dd H:i:s
 const getCurrentTimeFormatted = () => {
@@ -49,7 +33,7 @@ const getCurrentTimeFormatted = () => {
 
   // Ghép lại theo định dạng Y-m-d H:i:s
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-}
+};
 
 // Route để nhận tin nhắn từ Laravel
 app.post('/send-message', (req, res) => {
@@ -62,9 +46,24 @@ app.post('/send-message', (req, res) => {
   }
 });
 
+app.get('/api/online-users', (req, res) => {
+  const onlineUsers = Object.keys(userConnections).map(userID => ({
+    userID,
+    isOnline: true,
+    last_active: null // Bạn có thể thêm thông tin khác nếu cần
+  }));
+  res.json({ data: onlineUsers });
+});
+
 // Xử lý kết nối WebSocket
 io.on('connection', (socket) => {
   const userID = socket.handshake.query.userID;
+
+  if (!userID) {
+    console.log('Connection without userID, disconnecting...');
+    socket.disconnect();
+    return;
+  }
 
   if (!userConnections[userID]) {
     userConnections[userID] = new Set();
@@ -78,8 +77,12 @@ io.on('connection', (socket) => {
 
   console.log(`User connected: ${userID}, Connections: ${userConnections[userID].size}`);
 
-  // Gửi danh sách user cho client
-  broadcastUserList();
+  // Gửi người dùng vừa kết nối qua sự kiện user_list
+  io.emit('user_list', {
+    userID,
+    online: true,
+    last_active: null
+  });
 
   socket.on('disconnect', async () => {
     userConnections[userID].delete(socket.id);
@@ -99,17 +102,22 @@ io.on('connection', (socket) => {
           last_active
         };
         console.log(`Updated last_time_online and moved user to userDisconnections: ${userID}`);
+
+        // Gửi người dùng vừa ngắt kết nối qua sự kiện user_disconnect_list
+        io.emit('user_disconnect_list', {
+          userID,
+          online: false,
+          last_active
+        });
       } catch (error) {
         console.error(`Failed to update last_time_online for user: ${userID}`, error.message);
       }
     } else {
       console.log(`User disconnected: ${userID}, Remaining connections: ${userConnections[userID].size}`);
     }
-
-    // Gửi danh sách user cho client
-    broadcastUserList();
   });
 });
+
 server.listen(6060, () => {
   console.log('Socket server is running on port 6060');
 });
