@@ -74,8 +74,10 @@ io.on('connection', (socket) => {
 
     // Lắng nghe sự kiện đăng ký user ID
     socket.on('register', (userId) => {
-        onlineUsers[userId] = socket.id; // Lưu socket ID theo user ID
-        console.log('User registered:', userId);
+        if (userId) {
+            onlineUsers[userId] = socket.id; // Lưu socket ID theo user ID
+            console.log('User registered:', userId);
+        }
     });
 
     // Lắng nghe sự kiện gửi yêu cầu kết bạn
