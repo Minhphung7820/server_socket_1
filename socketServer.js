@@ -72,6 +72,29 @@ io.on('connection', (socket) => {
         last_active: null,
     });
 
+    socket.on('send_friend_request', (data) => {
+        const { sender_id, receiver_id } = data;
+
+        if (receiver_id) {
+            // Kiểm tra user nhận (receiver) có đang online không
+            const receiverConnections = userConnections[receiver_id];
+            if (receiverConnections) {
+                // Gửi thông báo đến tất cả các kết nối của user nhận
+                receiverConnections.forEach((socketId) => {
+                    io.to(socketId).emit('receive_friend_request', {
+                        sender_id,
+                        receiver_id
+                    });
+                });
+                console.log(`Sent friend request notification from ${sender_id} to ${receiver_id}`);
+            } else {
+                console.log(`Receiver ${receiver_id} is offline. Could not deliver notification.`);
+            }
+        } else {
+            console.log('Invalid friend request data received');
+        }
+    });
+
     // Lắng nghe sự kiện `join_conversation`
     socket.on('join_conversation', (conversation_id) => {
         if (conversation_id) {
