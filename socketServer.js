@@ -35,6 +35,17 @@ const getCurrentTimeFormatted = () => {
     return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 };
 
+// Route để nhận tin nhắn từ Laravel
+app.post('/send-message', (req, res) => {
+    const message = req.body.message;
+    if (message) {
+        io.emit('chat message', message);
+        res.status(200).json({ success: true, message: 'Message sent to clients' });
+    } else {
+        res.status(400).json({ success: false, message: 'Message not found in request' });
+    }
+});
+
 app.get('/api/online-users', (req, res) => {
     const onlineUsers = Object.keys(userConnections).map(userID => ({
         userID,
@@ -72,24 +83,6 @@ io.on('connection', (socket) => {
         last_active: null,
     });
 
-    // Lắng nghe sự kiện đăng ký user ID
-    socket.on('register', (userId) => {
-        if (userId) {
-            onlineUsers[userId] = socket.id; // Lưu socket ID theo user ID
-            console.log('User registered:', userId);
-        }
-    });
-
-    // Lắng nghe sự kiện gửi yêu cầu kết bạn
-    socket.on('send-friend-request', (data) => {
-        const { sender, receiverId } = data;
-
-        if (onlineUsers[receiverId]) {
-            io.to(onlineUsers[receiverId]).emit('friend-request', { sender });
-            console.log(`Friend request sent to user ${receiverId}`);
-        }
-    });
-
     // Lắng nghe sự kiện `join_conversation`
     socket.on('join_conversation', (conversation_id) => {
         if (conversation_id) {
@@ -125,6 +118,17 @@ io.on('connection', (socket) => {
                 sender_id,
                 timestamp: getCurrentTimeFormatted(),
             });
+            // Gửi tin nhắn đến Laravel API để lưu trữ
+            // try {
+            //     await axios.post('http://localhost:8000/api/save-message', {
+            //         conversation_id,
+            //         sender_id,
+            //         message,
+            //     });
+            //     console.log(`Message saved to conversation: ${conversation_id}`);
+            // } catch (error) {
+            //     console.error(`Failed to save message to Laravel API: ${error.message}`);
+            // }
         } else {
             console.log('Invalid message data received');
         }
