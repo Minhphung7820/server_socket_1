@@ -98,7 +98,7 @@ io.on('connection', (socket) => {
     // Lắng nghe sự kiện `join_conversation`
     socket.on('join_conversation', (conversation_id) => {
         if (conversation_id) {
-            socket.join(conversation_id);
+            socket.join(`conversation_${conversation_id}`);
             console.log(`User ${userID} joined conversation: ${conversation_id}`);
         } else {
             console.log(`User ${userID} attempted to join a conversation without an ID`);
@@ -110,7 +110,7 @@ io.on('connection', (socket) => {
         const { conversation_id, typewriter_id } = data;
         if (conversation_id && typewriter_id) {
             // Phát sự kiện "typing" đến tất cả thành viên trong phòng, trừ người gửi
-            socket.to(conversation_id).emit('typing', {
+            socket.to(`conversation_${conversation_id}`).emit('typing', {
                 typewriter_id,
                 conversation_id,
             });
@@ -124,7 +124,7 @@ io.on('connection', (socket) => {
 
         if (conversation_id && content, sender_id) {
             // Phát tin nhắn đến các client trong conversation này
-            io.to(conversation_id).emit('receive_message', {
+            io.to(`conversation_${conversation_id}`).emit('receive_message', {
                 conversation_id,
                 content,
                 sender_id,
@@ -138,7 +138,7 @@ io.on('connection', (socket) => {
     // Lắng nghe sự kiện thoát phòng
     socket.on('leave_conversation', (conversation_id) => {
         if (conversation_id) {
-            socket.leave(conversation_id);
+            socket.leave(`conversation_${conversation_id}`);
             console.log(`User ${userID} left conversation: ${conversation_id}`);
         } else {
             console.log(`User ${userID} attempted to leave a conversation without an ID`);
