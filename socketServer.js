@@ -143,7 +143,7 @@ io.on('connection', (socket) => {
     socket.on('seen_message', (data) => {
         const { conversation_id, typewriter_id } = data;
         if (conversation_id && typewriter_id) {
-            // Phát sự kiện "typing" đến tất cả thành viên trong phòng, trừ người gửi
+            // Phát sự kiện "seen" đến tất cả thành viên trong phòng, trừ người gửi
             socket.to(`conversation_${conversation_id}`).emit('seen_message', {
                 typewriter_id,
                 conversation_id,
