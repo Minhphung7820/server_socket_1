@@ -141,12 +141,14 @@ io.on('connection', (socket) => {
 
     // Lắng nghe và phát sự kiện seen message
     socket.on('seen_message', (data) => {
-        const { conversation_id, typewriter_id } = data;
-        if (conversation_id && typewriter_id) {
+        const { conversation_id, viewer_id, name, avatar } = data;
+        if (conversation_id && viewer_id && name && avatar) {
             // Phát sự kiện "seen" đến tất cả thành viên trong phòng, trừ người gửi
             socket.to(`conversation_${conversation_id}`).emit('seen_message', {
-                typewriter_id,
+                viewer_id,
                 conversation_id,
+                name,
+                avatar
             });
             console.log(`User ${userID} seen in conversation: ${conversation_id}`);
         }
