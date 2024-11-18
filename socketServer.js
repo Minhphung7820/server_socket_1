@@ -95,6 +95,27 @@ io.on('connection', (socket) => {
         }
     });
 
+    // thông báo cho người gửi lời mời kết bạn về phản hồi
+    socket.on('noti_change_friend_request', (data) => {
+        const { sender_id, receiver_id, status, conversation_id } = data;
+
+        if (sender_id, receiver_id, status, conversation_id) {
+            // Kiểm tra user nhận (receiver) có đang online không
+            const receiverConnections = userConnections[receiver_id];
+            if (receiverConnections) {
+                // Gửi thông báo đến tất cả các kết nối của user nhận
+                receiverConnections.forEach((socketId) => {
+                    io.to(socketId).emit('receive_noti_change_friend_request', {
+                        sender_id,
+                        receiver_id,
+                        status,
+                        conversation_id
+                    });
+                });
+            }
+        }
+    });
+
     // Lắng nghe sự kiện `join_conversation`
     socket.on('join_conversation', (conversation_id) => {
         if (conversation_id) {
@@ -119,7 +140,7 @@ io.on('connection', (socket) => {
     });
 
     // Lắng nghe tin nhắn từ người dùng trong một conversation
-    socket.on('send_message', async(data) => {
+    socket.on('send_message', async (data) => {
         const { conversation_id, content, sender_id } = data;
 
         if (conversation_id && content, sender_id) {
@@ -145,7 +166,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('disconnect', async() => {
+    socket.on('disconnect', async () => {
         userConnections[userID].delete(socket.id);
         if (userConnections[userID].size === 0) {
             delete userConnections[userID];
