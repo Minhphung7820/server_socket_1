@@ -139,6 +139,19 @@ io.on('connection', (socket) => {
         }
     });
 
+    // Lắng nghe và phát sự kiện seen message
+    socket.on('seen_message', (data) => {
+        const { conversation_id, typewriter_id } = data;
+        if (conversation_id && typewriter_id) {
+            // Phát sự kiện "typing" đến tất cả thành viên trong phòng, trừ người gửi
+            socket.to(`conversation_${conversation_id}`).emit('seen_message', {
+                typewriter_id,
+                conversation_id,
+            });
+            console.log(`User ${userID} seen in conversation: ${conversation_id}`);
+        }
+    });
+
     // Lắng nghe tin nhắn từ người dùng trong một conversation
     socket.on('send_message', async (data) => {
         const { conversation_id, content, sender_id } = data;
