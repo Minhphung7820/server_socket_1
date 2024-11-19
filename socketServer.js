@@ -141,21 +141,22 @@ io.on('connection', (socket) => {
 
     // Lắng nghe và phát sự kiện seen message
     socket.on('seen_message', (data) => {
-        const { conversation_id, viewer_id, name, avatar } = data;
-        if (conversation_id && viewer_id && name && avatar) {
+        const { conversation_id, viewer_id, name, avatar, sender_id } = data;
+        if (conversation_id && viewer_id && name && avatar, sender_id) {
             // Phát sự kiện "seen" đến tất cả thành viên trong phòng, trừ người gửi
             socket.to(`conversation_${conversation_id}`).emit('seen_message', {
                 viewer_id,
                 conversation_id,
                 name,
-                avatar
+                avatar,
+                sender_id
             });
             console.log(`User ${userID} seen in conversation: ${conversation_id}`);
         }
     });
 
     // Lắng nghe tin nhắn từ người dùng trong một conversation
-    socket.on('send_message', async (data) => {
+    socket.on('send_message', async(data) => {
         const { conversation_id, content, sender_id } = data;
 
         if (conversation_id && content, sender_id) {
@@ -181,7 +182,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('disconnect', async () => {
+    socket.on('disconnect', async() => {
         userConnections[userID].delete(socket.id);
         if (userConnections[userID].size === 0) {
             delete userConnections[userID];
