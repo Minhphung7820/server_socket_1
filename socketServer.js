@@ -202,26 +202,32 @@ io.on('connection', (socket) => {
             // Gọi API Laravel để cập nhật last_time_online
             try {
                 const last_active = getCurrentTimeFormatted();
-                await axios.post('http://localhost:8000/api/set-last-online', {
-                    userID,
-                    last_active,
-                });
 
-                // Thêm user vào userDisconnections
-                userDisconnections[userID] = {
-                    last_active,
-                };
-                console.log(`Updated last_time_online and moved user to userDisconnections: ${userID}`);
-
+                // 1. Xóa user khỏi Redis
                 await redisClient.hdel('online_users', userID);
-                // Gửi người dùng vừa ngắt kết nối qua sự kiện user_disconnect_list
+                console.log(`User ${userID} removed from Redis`);
+
+                // 2. Gửi sự kiện user_disconnect_list tới các client
                 io.emit('user_disconnect_list', {
                     userID,
                     online: false,
                     last_active,
                 });
+
+                // 3. Gửi yêu cầu lưu trạng thái offline vào Laravel
+                await axios.post('http://localhost:8000/api/set-last-online', {
+                    userID,
+                    last_active,
+                });
+                console.log(`Updated last_time_online in Laravel for user: ${userID}`);
+
+                // 4. Cập nhật danh sách user ngắt kết nối (nếu cần dùng lại sau này)
+                userDisconnections[userID] = {
+                    last_active,
+                };
+                console.log(`Moved user ${userID} to userDisconnections`);
             } catch (error) {
-                console.error(`Failed to update last_time_online for user: ${userID}`, error.message);
+                console.error(`Failed to handle disconnect for user: ${userID}`, error.message);
             }
         } else {
             console.log(`User disconnected: ${userID}, Remaining connections: ${userConnections[userID].size}`);
