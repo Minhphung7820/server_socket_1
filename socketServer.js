@@ -3,6 +3,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const axios = require('axios'); // Dùng để gọi API Laravel
+const Redis = require('ioredis'); // Thư viện Redis
 
 const app = express();
 const server = http.createServer(app);
@@ -16,6 +17,7 @@ const io = new Server(server, {
 app.use(cors());
 app.use(express.json());
 
+const redisClient = new Redis();
 const userConnections = {};
 const userDisconnections = {};
 
@@ -35,13 +37,14 @@ const getCurrentTimeFormatted = () => {
     return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 };
 
-app.get('/api/online-users', (req, res) => {
-    const onlineUsers = Object.keys(userConnections).map(userID => ({
-        userID,
-        isOnline: true,
-        last_active: null // Bạn có thể thêm thông tin khác nếu cần
-    }));
-    res.json({ data: onlineUsers });
+app.get('/api/online-users', async (req, res) => {
+    try {
+        const users = await redisClient.hgetall('online_users');
+        const onlineUsers = Object.values(users).map(user => JSON.parse(user));
+        res.json({ data: onlineUsers });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch online users' });
+    }
 });
 
 io.on('connection', (socket) => {
@@ -63,6 +66,14 @@ io.on('connection', (socket) => {
         delete userDisconnections[userID];
     }
 
+    // Khi user kết nối, lưu trạng thái vào Redis
+    const userData = {
+        userID,
+        isOnline: true,
+        last_active: null
+    };
+
+    redisClient.hset('online_users', userID, JSON.stringify(userData));
     console.log(`User connected: ${userID}, Connections: ${userConnections[userID].size}`);
 
     // Gửi thông tin người dùng vừa kết nối đến tất cả client
@@ -156,7 +167,7 @@ io.on('connection', (socket) => {
     });
 
     // Lắng nghe tin nhắn từ người dùng trong một conversation
-    socket.on('send_message', async(data) => {
+    socket.on('send_message', async (data) => {
         const { conversation_id, content, sender_id } = data;
 
         if (conversation_id && content, sender_id) {
@@ -182,7 +193,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('disconnect', async() => {
+    socket.on('disconnect', async () => {
         userConnections[userID].delete(socket.id);
         if (userConnections[userID].size === 0) {
             delete userConnections[userID];
@@ -202,6 +213,7 @@ io.on('connection', (socket) => {
                 };
                 console.log(`Updated last_time_online and moved user to userDisconnections: ${userID}`);
 
+                await redisClient.hdel('online_users', userID);
                 // Gửi người dùng vừa ngắt kết nối qua sự kiện user_disconnect_list
                 io.emit('user_disconnect_list', {
                     userID,
