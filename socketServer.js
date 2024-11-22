@@ -126,7 +126,19 @@ io.on('connection', (socket) => {
             }
         }
     });
+    // Lắng nghe sự kiện `thả cảm xúc tin nhắn`
+    socket.on('reaction_message', (data) => {
+        const { responder_id, message_id, emoji, conversation_id } = data;
 
+        if (responder_id, message_id, emoji, conversation_id) {
+            socket.to(`conversation_${conversation_id}`).emit('receive_reaction_message', {
+                responder_id,
+                message_id,
+                emoji,
+                conversation_id
+            });
+        }
+    });
     // Lắng nghe sự kiện `join_conversation`
     socket.on('join_conversation', (conversation_id) => {
         if (conversation_id) {
@@ -168,7 +180,7 @@ io.on('connection', (socket) => {
 
     // Lắng nghe tin nhắn từ người dùng trong một conversation
     socket.on('send_message', async (data) => {
-        const { conversation_id, content, sender_id } = data;
+        const { conversation_id, content, sender_id, message_id } = data;
 
         if (conversation_id && content, sender_id) {
             // Phát tin nhắn đến các client trong conversation này
@@ -176,6 +188,7 @@ io.on('connection', (socket) => {
                 conversation_id,
                 content,
                 sender_id,
+                message_id,
                 timestamp: getCurrentTimeFormatted(),
             });
         } else {
