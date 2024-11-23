@@ -38,12 +38,63 @@ const getCurrentTimeFormatted = () => {
 };
 
 app.get('/api/online-users', async (req, res) => {
+    // Lấy token Bearer từ header
+    const token = req.headers.authorization && req.headers.authorization.split(' ')[1]; // Lấy phần sau "Bearer"
+
+    if (!token) {
+        return res.status(401).json({ error: 'Token is required' });
+    }
+
     try {
-        const users = await redisClient.hgetall('online_users');
-        const onlineUsers = Object.values(users).map(user => JSON.parse(user));
-        res.json({ data: onlineUsers });
+        // Gọi API Laravel để lấy danh sách bạn bè của người dùng
+        const friendResponse = await axios.get(`http://localhost:8000/api/get-people`, {
+            headers: {
+                Authorization: `Bearer ${token}`, // Truyền token vào header
+                Origin: `http://localhost:6060`
+            },
+        });
+
+        const friendIDs = friendResponse.data; // Mảng ID bạn bè
+
+        // Lấy trạng thái online từ Redis cho bạn bè
+        const onlineFriends = [];
+        for (const friendID of friendIDs) {
+            const friendData = await redisClient.hget('online_users', friendID);
+            if (friendData) {
+                onlineFriends.push(JSON.parse(friendData)); // Thêm bạn bè đang online
+            }
+        }
+
+        // Trả danh sách bạn bè online
+        res.json({ data: onlineFriends });
     } catch (error) {
-        res.status(500).json({ error: 'Failed to fetch online users' });
+        console.error('Error fetching online friends:', error.message);
+        res.status(500).json({ error: 'Failed to fetch online friends' });
+    }
+});
+
+app.get('/api/is-active', async (req, res) => {
+    // Lấy userID từ query
+    const { userID } = req.query;
+
+    if (!userID) {
+        return res.status(400).json({ error: 'userID is required' });
+    }
+
+    try {
+        // Kiểm tra trong Redis xem userID có tồn tại không
+        const userData = await redisClient.hget('online_users', userID);
+
+        if (userData) {
+            // Nếu userID tồn tại, trả về true
+            return res.json({ isActive: true });
+        } else {
+            // Nếu userID không tồn tại, trả về false
+            return res.json({ isActive: false });
+        }
+    } catch (error) {
+        console.error('Error checking user activity:', error.message);
+        return res.status(500).json({ error: 'Failed to check user activity' });
     }
 });
 
