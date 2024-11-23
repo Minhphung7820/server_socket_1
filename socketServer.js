@@ -4,7 +4,10 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 const axios = require('axios'); // Dùng để gọi API Laravel
 const Redis = require('ioredis'); // Thư viện Redis
+require('dotenv').config();
 
+const LARAVEL_API_URL = process.env.LARAVEL_API_URL || 'http://localhost:8000';
+const SOCKET_SERVER_URL = process.env.SOCKET_SERVER_URL || 'http://localhost:6060';
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -47,10 +50,10 @@ app.get('/api/online-users', async (req, res) => {
 
     try {
         // Gọi API Laravel để lấy danh sách bạn bè của người dùng
-        const friendResponse = await axios.get(`http://localhost:8000/api/get-people`, {
+        const friendResponse = await axios.get(`${LARAVEL_API_URL}/api/get-people`, {
             headers: {
                 Authorization: `Bearer ${token}`, // Truyền token vào header
-                Origin: `http://localhost:6060`
+                Origin: SOCKET_SERVER_URL
             },
         });
 
@@ -279,7 +282,7 @@ io.on('connection', (socket) => {
                 });
 
                 // 3. Gửi yêu cầu lưu trạng thái offline vào Laravel
-                await axios.post('http://localhost:8000/api/set-last-online', {
+                await axios.post(`${LARAVEL_API_URL}/api/set-last-online`, {
                     userID,
                     last_active,
                 });
