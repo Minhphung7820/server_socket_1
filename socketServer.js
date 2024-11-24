@@ -59,17 +59,27 @@ app.get('/api/online-users', async (req, res) => {
 
         const friendIDs = friendResponse.data; // Mảng ID bạn bè
 
-        // Lấy trạng thái online từ Redis cho bạn bè
-        const onlineFriends = [];
-        for (const friendID of friendIDs) {
-            const friendData = await redisClient.hget('online_users', friendID);
-            if (friendData) {
-                onlineFriends.push(JSON.parse(friendData)); // Thêm bạn bè đang online
-            }
-        }
+        // Duyệt qua danh sách bạn bè để kiểm tra trạng thái online từ Redis
+        const friendStatuses = await Promise.all(
+            Object.entries(friendIDs).map(async ([friendID, lastActive]) => {
+                const friendData = await redisClient.hget('online_users', friendID);
 
-        // Trả danh sách bạn bè online
-        res.json({ data: onlineFriends });
+                if (friendData) {
+                    // Người dùng đang online
+                    return JSON.parse(friendData);
+                } else {
+                    // Người dùng offline
+                    return {
+                        userID: parseInt(friendID), // ID là số nguyên
+                        isOnline: false,
+                        last_active: lastActive, // Thời gian last_active từ Laravel
+                    };
+                }
+            })
+        );
+
+        // Trả danh sách bạn bè với trạng thái online/offline
+        res.json({ data: friendStatuses });
     } catch (error) {
         console.error('Error fetching online friends:', error.message);
         res.status(500).json({ error: 'Failed to fetch online friends' });
