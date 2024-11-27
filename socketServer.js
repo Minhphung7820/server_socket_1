@@ -244,7 +244,7 @@ io.on('connection', (socket) => {
 
     // Lắng nghe tin nhắn từ người dùng trong một conversation
     socket.on('send_message', async (data) => {
-        const { conversation_id, content, sender_id, message_id } = data;
+        const { conversation_id, content, sender_id, message_id, type } = data;
 
         if (conversation_id && content, sender_id) {
             // Phát tin nhắn đến các client trong conversation này
@@ -253,6 +253,7 @@ io.on('connection', (socket) => {
                 content,
                 sender_id,
                 message_id,
+                type,
                 timestamp: getCurrentTimeFormatted(),
             });
         } else {
