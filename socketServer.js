@@ -40,7 +40,7 @@ const getCurrentTimeFormatted = () => {
     return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 };
 
-app.get('/api/online-users', async (req, res) => {
+app.get('/api/online-users', async(req, res) => {
     // Lấy token Bearer từ header
     const token = req.headers.authorization && req.headers.authorization.split(' ')[1]; // Lấy phần sau "Bearer"
 
@@ -61,7 +61,7 @@ app.get('/api/online-users', async (req, res) => {
 
         // Duyệt qua danh sách bạn bè để kiểm tra trạng thái online từ Redis
         const friendStatuses = await Promise.all(
-            Object.entries(friendIDs).map(async ([friendID, lastActive]) => {
+            Object.entries(friendIDs).map(async([friendID, lastActive]) => {
                 const friendData = await redisClient.hget('online_users', friendID);
 
                 if (friendData) {
@@ -86,7 +86,7 @@ app.get('/api/online-users', async (req, res) => {
     }
 });
 
-app.get('/api/is-active', async (req, res) => {
+app.get('/api/is-active', async(req, res) => {
     // Lấy userID từ query
     const { userID } = req.query;
 
@@ -243,8 +243,8 @@ io.on('connection', (socket) => {
     });
 
     // Lắng nghe tin nhắn từ người dùng trong một conversation
-    socket.on('send_message', async (data) => {
-        const { conversation_id, content, sender_id, message_id, type } = data;
+    socket.on('send_message', async(data) => {
+        const { conversation_id, content, sender_id, message_id, type, encrypted_group_key } = data;
 
         if (conversation_id && content, sender_id) {
             // Phát tin nhắn đến các client trong conversation này
@@ -254,6 +254,7 @@ io.on('connection', (socket) => {
                 sender_id,
                 message_id,
                 type,
+                encrypted_group_key,
                 timestamp: getCurrentTimeFormatted(),
             });
         } else {
@@ -271,7 +272,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('disconnect', async () => {
+    socket.on('disconnect', async() => {
         userConnections[userID].delete(socket.id);
         if (userConnections[userID].size === 0) {
             delete userConnections[userID];
