@@ -112,7 +112,9 @@ app.get('/api/is-active', async(req, res) => {
 });
 
 io.on('connection', (socket) => {
-    const userID = socket.handshake.query.userID;
+    const userID = parseInt(socket.handshake.query.userID);
+    const name = socket.handshake.query.name;
+    const avatar = socket.handshake.query.avatar;
 
     if (!userID) {
         console.log('Connection without userID, disconnecting...');
@@ -145,6 +147,8 @@ io.on('connection', (socket) => {
         userID,
         online: true,
         last_active: null,
+        name,
+        avatar
     });
 
     socket.on('send_friend_request', (data) => {
